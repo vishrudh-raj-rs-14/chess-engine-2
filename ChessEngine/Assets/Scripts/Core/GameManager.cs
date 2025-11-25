@@ -39,6 +39,13 @@ namespace Core
                 
             }
         }
+
+        public void MakeMove(Move move)
+        {
+            if(move.toi==move.fromi && move.toj==move.fromj) return;
+            _board[move.toi, move.toj] = _board[move.fromi, move.fromj];
+            _board[move.fromi, move.fromj] = null;
+        }
         
         public Piece[,] GetBoard()
         {
