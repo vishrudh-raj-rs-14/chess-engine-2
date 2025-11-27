@@ -55,7 +55,12 @@ namespace Core
             if (_isNull) return PieceType.None;
             return this._pieceType;
         }
-        
+
+        public void SetPieceType(PieceType pieceType)
+        {
+            _pieceType = pieceType;
+        }
+            
         
     }
 }

@@ -383,7 +383,7 @@ MonoBehaviour:
   bn: {fileID: 4626758567239134608, guid: 09355f174d07c4420906a43e8c886cb1, type: 3}
   br: {fileID: 5677300203525367849, guid: 22c6ee7ff22134ab9b5f1f0ef95c54ee, type: 3}
   bp: {fileID: 4228312986317919520, guid: 92d06682728c14d45b419ca7b19806c1, type: 3}
-  startPositionFen: r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1
+  startPositionFen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR
 --- !u!4 &2075639587
 Transform:
   m_ObjectHideFlags: 0

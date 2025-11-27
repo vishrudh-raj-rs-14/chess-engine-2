@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Core;
 using UnityEngine;
 
@@ -7,6 +8,7 @@ public class ChessUIManager : MonoBehaviour
     
     private float SqrSize = 1f;
     private GameObject[,] board = new GameObject[8, 8];
+    private GameObject[,] validSquares = new GameObject[8, 8];
     private GameObject[,] activePieces = new GameObject[8, 8];
 
     // Square Colors
@@ -14,8 +16,12 @@ public class ChessUIManager : MonoBehaviour
     private Color lightSquares;
     [SerializeField] 
     private Color darkSquares;
+    [SerializeField] private Color validSquareColors;
     private Material lightSquareMat;
     private Material darkSquareMat;
+    private Material validSquareMat;
+
+    private List<Move> validSqrs;
     
     // Pieces
     [SerializeField] private GameObject wk;
@@ -60,8 +66,9 @@ public class ChessUIManager : MonoBehaviour
         if (_isDragged)
         {
             var worldPost = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            worldPost.z = 0;
+            worldPost.z = -1f;
             _draggedPiece.transform.position = worldPost;
+            
         }
 
     }
@@ -74,6 +81,14 @@ public class ChessUIManager : MonoBehaviour
             var coords = ConvertCorrdstoBoardIndex(worldPost);
             if(coords.x<0 || coords.x>=8 || coords.y<0 || coords.y>=8) return;
             if(activePieces[coords.y, coords.x]==null) return;
+            validSqrs = game.GenerateValidMoves(coords);
+            for (int i = 0; i < validSqrs.Count; i++)
+            {
+                var di = validSqrs[i].toi;
+                var dj = validSqrs[i].toj;
+                var p = validSquares[di, dj].transform.position;
+                validSquares[di, dj].transform.position = new Vector3(p.x, p.y, -0.5f);
+            }
             _isDragged = true;
             _draggedPiece = activePieces[coords.y, coords.x];
             _dragStartCoords = coords;
@@ -83,19 +98,42 @@ public class ChessUIManager : MonoBehaviour
         {
             var worldPost = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             var currentCoords = ConvertCorrdstoBoardIndex(worldPost);
+            for (int i = 0; i < validSqrs.Count; i++)
+            {
+                var di = validSqrs[i].toi;
+                var dj = validSqrs[i].toj;
+                var p = validSquares[di, dj].transform.position;
+                validSquares[di, dj].transform.position = new Vector3(p.x, p.y, 1f);
+            }
             if(!_isDragged) return;
             _isDragged = false;
-            if (!(currentCoords.x < 0 || currentCoords.x >= 8 || currentCoords.y < 0 || currentCoords.y >= 8))
+            if (!(currentCoords.x < 0 || currentCoords.x >= 8 || currentCoords.y < 0 || currentCoords.y >= 8) && !(currentCoords.x==_dragStartCoords.x && currentCoords.y==_dragStartCoords.y))
             {
-                var move = new Move(_dragStartCoords.y, _dragStartCoords.x, currentCoords.y, currentCoords.x);
-                game.MakeMove(move);
-                UpdateVisuals(move);
+                var moveI = -1;
+                for (int i = 0; i < validSqrs.Count; i++)
+                {
+                    if (validSqrs[i].toi == currentCoords.y && validSqrs[i].toj == currentCoords.x)
+                    {
+                        moveI = i;
+                        break;
+                    }
+                }
+
+                if (moveI != -1)
+                {
+                game.MakeMove(validSqrs[moveI]);
+                UpdateVisuals(validSqrs[moveI]);
+                }
+                else
+                {
+                    ResetPosition();
+                }
             }
             else
             {
                 ResetPosition();
             }
-
+            validSqrs = null;
             _draggedPiece = null;
             _dragStartCoords = new Vector2Int();
         }
@@ -110,9 +148,53 @@ public class ChessUIManager : MonoBehaviour
             Destroy(toPiece);
         }
 
-        _draggedPiece.transform.position = board[move.toi, move.toj].transform.position;        
         activePieces[move.toi, move.toj] = activePieces[move.fromi, move.fromj];
         activePieces[move.fromi, move.fromj] = null;
+        
+        if (move.moveType == Move.MoveType.KingSideCastle)
+        {
+            activePieces[move.toi, move.toj - 1] = activePieces[move.toi, move.toj + 1];
+            activePieces[move.toi, move.toj + 1] = null;
+        }else if (move.moveType == Move.MoveType.QueenSideCastle)
+        {
+            activePieces[move.toi, move.toj + 1] = activePieces[move.toi, move.toj - 2];
+            activePieces[move.toi, move.toj - 2] = null;
+        }
+        else if(move.moveType == Move.MoveType.Enpassant)
+        {
+            activePieces[move.fromi, move.toj] = null;
+        }else if (move.moveType == Move.MoveType.PromotetoQueen)
+        {
+            Destroy(activePieces[move.toi, move.toj]);
+            var piece = Instantiate(move.pieceColor == Piece.PieceColor.White ? wq : bq);
+            activePieces[move.toi, move.toj] = piece;
+        }else if (move.moveType == Move.MoveType.PromotetoBishop)
+        {
+            Destroy(activePieces[move.toi, move.toj]);
+            var piece = Instantiate(move.pieceColor == Piece.PieceColor.White ? wb : bb);
+            activePieces[move.toi, move.toj] = piece;
+        }else if (move.moveType == Move.MoveType.PromotetoKnight)
+        {
+            Destroy(activePieces[move.toi, move.toj]);
+            var piece = Instantiate(move.pieceColor == Piece.PieceColor.White ? wn : bn);
+            activePieces[move.toi, move.toj] = piece;
+        }else if (move.moveType == Move.MoveType.PromotetoRook)
+        {
+            Destroy(activePieces[move.toi, move.toj]);
+            var piece = Instantiate(move.pieceColor == Piece.PieceColor.White ? wr : br);
+            activePieces[move.toi, move.toj] = piece;
+        }
+
+        for (int i = 0; i < 8; i++)
+        {
+            for (int j = 0; j < 8; j++)
+            {
+                if(activePieces[i, j]==null) continue;
+                activePieces[i, j].transform.position = board[i, j].transform.position;
+            }
+        }
+        
+        
 
     }
 
@@ -132,6 +214,11 @@ public class ChessUIManager : MonoBehaviour
         {
             darkSquareMat.color = darkSquares;
         }
+
+        if (validSquareMat != null)
+        {
+            validSquareMat.color = validSquareColors;
+        }
     }
 
     private void InitializeValues()
@@ -140,6 +227,8 @@ public class ChessUIManager : MonoBehaviour
         lightSquareMat.color = lightSquares;
         darkSquareMat = new Material(Shader.Find("Unlit/Color"));
         darkSquareMat.color = darkSquares;
+        validSquareMat = new Material(Shader.Find("Unlit/Color"));
+        validSquareMat.color = validSquareColors;
     }
 
     void DrawBoard()
@@ -161,6 +250,9 @@ public class ChessUIManager : MonoBehaviour
             {
                 var sqr = CreateSquare(tempX, tempY, SqrSize, (i + j) % 2 == 0 ? lightSquareMat : darkSquareMat);
                 board[i, j] = sqr;
+                var valSqr = CreateSquare(tempX, tempY, SqrSize, validSquareMat);
+                valSqr.transform.position = new Vector3(valSqr.transform.position.x, valSqr.transform.position.y, 1f);
+                validSquares[i, j] = valSqr;
                 tempX += SqrSize;
             }
 
@@ -201,7 +293,7 @@ public class ChessUIManager : MonoBehaviour
 
                 if (pref == null) continue;
                 GameObject pieceObj = Instantiate(pref);
-                pieceObj.transform.position = board[i, j].transform.position;
+                pieceObj.transform.position = new Vector3(board[i, j].transform.position.x, board[i, j].transform.position.y, -0.75f);
                 activePieces[i, j] = pieceObj;
             }
         }

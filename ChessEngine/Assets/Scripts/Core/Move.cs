@@ -2,20 +2,20 @@ namespace Core
 {
     public class Move
     {
-        private enum MoveType
+        public enum MoveType
         {
             Regular,
             KingSideCastle,
             QueenSideCastle,
             Enpassant,
             PromotetoQueen,
-            PromotetoKing,
             PromotetoBishop,
             PromotetoKnight,
             PromotetoRook
         }
 
-        private Piece.PieceColor _pieceColor;
+        public Piece.PieceColor pieceColor;
+        public MoveType moveType;
 
         public int fromi;
         public int fromj;
@@ -30,6 +30,15 @@ namespace Core
             toj = tj;
         }
         
+        public Move(int fi, int fj, int ti, int tj, MoveType mType)
+        {
+            fromi = fi;
+            fromj = fj;
+            toi = ti;
+            toj = tj;
+            moveType = mType;
+        }
+
         
         
 
