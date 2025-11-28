@@ -9,10 +9,11 @@ namespace Core
         public Dictionary<Piece.PieceColor, bool> canCastleKingSide;
         public Dictionary<Piece.PieceColor, bool> canCastleQueenSide;
         public int enPassantFile;
-
+        public int noOfMoves;
 
         public GameState()
         {
+            noOfMoves = 0;
             capturedPiece = null;
             turn = Piece.PieceColor.White;
             canCastleKingSide = new Dictionary<Piece.PieceColor, bool>()
@@ -32,6 +33,7 @@ namespace Core
         
         public GameState(GameState state)
         {
+            noOfMoves = state.noOfMoves;
             capturedPiece = state.capturedPiece;
             turn = state.turn;
             canCastleKingSide = new Dictionary<Piece.PieceColor, bool>(state.canCastleKingSide);

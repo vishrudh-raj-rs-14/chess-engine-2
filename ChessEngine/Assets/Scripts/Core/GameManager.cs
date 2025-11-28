@@ -17,38 +17,96 @@ namespace Core
         public GameManager(string FEN)
         {
             states = new Stack<GameState>();
-            int i = 0;
-            int j = 0;
-            for (int x = 0; x < FEN.Length; x++)
-            {
-                if (FEN[x] == '/')
-                {
-                    i++;
-                    j = 0;
-                    continue;
-                }
-                if (char.IsDigit(FEN[x]))
-                {
-                    j += FEN[x] - '0';
-                    continue;
-                }
+            _board = new Piece[8, 8];
+            _curState = new GameState();
 
-                Piece.PieceColor color = char.IsLower(FEN[x]) ? Piece.PieceColor.Black : Piece.PieceColor.White;
-                Piece.PieceType type = Piece.PieceType.None;
-                char t = char.ToLower(FEN[x]);
-                if (t == 'r') type = Piece.PieceType.Rook;
-                else if (t == 'b') type = Piece.PieceType.Bishop;
-                else if (t == 'n') type = Piece.PieceType.Knight;
-                else if (t == 'p') type = Piece.PieceType.Pawn;
-                else if (t == 'q') type = Piece.PieceType.Queen;
-                else type = Piece.PieceType.King;
-                _board[i, j] = new Piece(color, type);
-                j++;
-                
+            string[] sections = FEN.Trim().Split(' ');
+
+            // --- PART 1: PIECE PLACEMENT ---
+            string piecePlacement = sections[0];
+            int row = 0;
+            int col = 0;
+            for (int i = 0; i < piecePlacement.Length; i++)
+            {
+                char c = piecePlacement[i];
+                if (c == '/')
+                {
+                    row++;
+                    col = 0;
+                }
+                else if (char.IsDigit(c))
+                {
+                    col += (int)char.GetNumericValue(c);
+                }
+                else
+                {
+                    Piece.PieceColor color = char.IsUpper(c) ? Piece.PieceColor.White : Piece.PieceColor.Black;
+                    Piece.PieceType type = Piece.PieceType.None;
+                    switch (char.ToLower(c))
+                    {
+                        case 'p': type = Piece.PieceType.Pawn; break;
+                        case 'r': type = Piece.PieceType.Rook; break;
+                        case 'n': type = Piece.PieceType.Knight; break;
+                        case 'b': type = Piece.PieceType.Bishop; break;
+                        case 'q': type = Piece.PieceType.Queen; break;
+                        case 'k': type = Piece.PieceType.King; break;
+                    }
+                    _board[row, col] = new Piece(color, type);
+                    col++;
+                }
+            }
+
+            // --- PART 2: ACTIVE COLOR ---
+            // 'w' = White, 'b' = Black
+            _curState.turn = (sections[1] == "w") ? Piece.PieceColor.White : Piece.PieceColor.Black;
+
+            // --- PART 3: CASTLING RIGHTS ---
+            // Reset to false first
+            _curState.canCastleKingSide[Piece.PieceColor.White] = false;
+            _curState.canCastleQueenSide[Piece.PieceColor.White] = false;
+            _curState.canCastleKingSide[Piece.PieceColor.Black] = false;
+            _curState.canCastleQueenSide[Piece.PieceColor.Black] = false;
+
+            if (sections[2] != "-")
+            {
+                if (sections[2].Contains("K")) _curState.canCastleKingSide[Piece.PieceColor.White] = true;
+                if (sections[2].Contains("Q")) _curState.canCastleQueenSide[Piece.PieceColor.White] = true;
+                if (sections[2].Contains("k")) _curState.canCastleKingSide[Piece.PieceColor.Black] = true;
+                if (sections[2].Contains("q")) _curState.canCastleQueenSide[Piece.PieceColor.Black] = true;
+            }
+
+            // --- PART 4: EN PASSANT TARGET ---
+            // Example: "e3" means the file is 'e' (4). "-" means none.
+            if (sections[3] == "-")
+            {
+                _curState.enPassantFile = -1;
+            }
+            else
+            {
+                // Convert 'a'->0, 'b'->1, etc.
+                char fileChar = sections[3][0]; 
+                _curState.enPassantFile = fileChar - 'a';
             }
             
-            _curState = new GameState();
             states.Push(new GameState(_curState));
+        }
+
+        public List<Move> GenerateAllValidMoves()
+        {
+            List<Move> validMoves = new List<Move>();
+            for (int i = 0; i < 8; i++)
+            {
+                for (int j = 0; j < 8; j++)
+                {
+                    if (_board[i, j] != null && _board[i, j].GetPieceColor() == _curState.turn)
+                    {
+                        validMoves.AddRange(GenerateValidMoves(new Vector2Int(j, i)));
+                    }
+                }
+            }
+
+            return validMoves;
+
         }
 
         public List<Move> GenerateValidMoves(Vector2Int sqr)
@@ -257,10 +315,10 @@ namespace Core
                         var dir = piece.GetPieceColor() == Piece.PieceColor.White ? -1 : 1;
                         if (Math.Abs(sqr.x - j) == 1 && i + dir == sqr.y)
                         {
-                            Debug.Log("1");
                             return true;
                         }
-                    }else if (piece.GetPieceType() == Piece.PieceType.Rook ||
+                    }
+                    if (piece.GetPieceType() == Piece.PieceType.Rook ||
                               piece.GetPieceType() == Piece.PieceType.Queen)
                     {
                         if (sqr.x == j)
@@ -278,7 +336,6 @@ namespace Core
                             
                             if (nothing)
                             {
-                        Debug.Log("2");
                                 
                                 return true;
                             }
@@ -298,13 +355,11 @@ namespace Core
 
                             if (nothing)
                             {
-                        Debug.Log("3");
-                                Debug.Log($"{i}, {j}, {sqr.y}, {sqr.x}, {_board[i, j].GetPieceColor()}, {_curState.turn}");
                                 return true;
                             }
                         }
                     }
-                    else if (piece.GetPieceType()==Piece.PieceType.Bishop || piece.GetPieceType()==Piece.PieceType.Queen)
+                    if (piece.GetPieceType()==Piece.PieceType.Bishop || piece.GetPieceType()==Piece.PieceType.Queen)
                     {
                         if (i + j == sqr.x + sqr.y || i - j == sqr.y - sqr.x) 
                         {
@@ -321,27 +376,24 @@ namespace Core
                             }
                             if (nothing)
                             {
-                        Debug.Log("4");
-                                
                                 return true;
                             }
                             
                         }
                     }
-                    else if (piece.GetPieceType() == Piece.PieceType.Knight)
+                    if (piece.GetPieceType() == Piece.PieceType.Knight)
                     {
                         if (Math.Abs(sqr.x - j) * Math.Abs(sqr.y - i) == 2) 
                         {
-                        Debug.Log("5");
                             
                             return true;
                         }
                         
-                    }else if (piece.GetPieceType() == Piece.PieceType.King)
+                    }
+                    if (piece.GetPieceType() == Piece.PieceType.King)
                     {
                         if (Math.Abs(sqr.x - j) <= 1 && Math.Abs(sqr.y - i) <= 1)
                         {
-                        Debug.Log("6");
                             
                             return true;
                         }
@@ -541,6 +593,15 @@ namespace Core
                 _board[move.toi, move.toj].SetPieceType(Piece.PieceType.Rook);
             }
 
+            if (piece.GetPieceType() == Piece.PieceType.Pawn ||  _curState.capturedPiece!=null)
+            {
+                _curState.noOfMoves = 0;
+            }
+            else
+            {
+                _curState.noOfMoves++;
+            }
+
             _curState.turn = (_curState.turn == Piece.PieceColor.White) ? Piece.PieceColor.Black : Piece.PieceColor.White;
             
             states.Push(new GameState(_curState));
@@ -581,6 +642,81 @@ namespace Core
         {
             return _board;
         }
+        
+        public enum GameResult { Playing, Checkmate, Stalemate, FiftyMoveRule }
+
+    public GameResult CheckGameStatus()
+    {
+        if (_curState.noOfMoves >= 100) return GameResult.FiftyMoveRule;
+
+        var moves = GenerateAllValidMoves();
+        
+        if (moves.Count > 0) return GameResult.Playing;
+
+        Vector2Int kingPos = new Vector2Int(-1, -1);
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (_board[i, j] != null && 
+                    _board[i, j].GetPieceType() == Piece.PieceType.King && 
+                    _board[i, j].GetPieceColor() == _curState.turn) 
+                {
+                    kingPos = new Vector2Int(j, i);
+                    break;
+                }
+            }
+        }
+
+        if (isSqrUnderAttack(kingPos, _curState.turn == Piece.PieceColor.White ? Piece.PieceColor.Black : Piece.PieceColor.White))
+        {
+            return GameResult.Checkmate;
+        }
+        
+        return GameResult.Stalemate;
+    }
+
+    public long Perft(int depth)
+    {
+        if (depth == 0) return 1;
+
+        var moves = GenerateAllValidMoves();
+        long nodes = 0;
+
+        foreach (var move in moves)
+        {
+            MakeMove(move);
+            _curState.noOfMoves = 0;
+            nodes += Perft(depth - 1);
+            UndoMove(move);
+        }
+
+        return nodes;
+    }
+
+    public string PerftDivide(int depth)
+    {
+        var moves = GenerateAllValidMoves();
+        long totalNodes = 0;
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+        foreach (var move in moves)
+        {
+            MakeMove(move);
+            long nodes = Perft(depth - 1);
+            UndoMove(move);
+            
+            totalNodes += nodes;
+            // Format: e2e4: 20
+            sb.AppendLine($"{MoveToString(move)}: {nodes}");
+        }
+        sb.AppendLine($"Total Nodes: {totalNodes}");
+        return sb.ToString();
+    }
+
+    private string MoveToString(Move m)
+    {
+        string files = "abcdefgh";
+        return $"{files[m.fromj]}{m.fromi + 1}{files[m.toj]}{m.toi + 1}";
+    }
         
     }
 }

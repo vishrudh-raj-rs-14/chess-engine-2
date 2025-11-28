@@ -81,6 +81,7 @@ public class ChessUIManager : MonoBehaviour
             var coords = ConvertCorrdstoBoardIndex(worldPost);
             if(coords.x<0 || coords.x>=8 || coords.y<0 || coords.y>=8) return;
             if(activePieces[coords.y, coords.x]==null) return;
+            Debug.Log(coords);
             validSqrs = game.GenerateValidMoves(coords);
             for (int i = 0; i < validSqrs.Count; i++)
             {
